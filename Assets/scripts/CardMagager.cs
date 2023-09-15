@@ -5,18 +5,20 @@ using Photon.Pun;
 
 public class CardManager : MonoBehaviourPun
 {
-    public List<int> deck; // 共通の山札
+    private int myPlayerID; //自信のプレイヤーID
     private int cardNum = 10; //カードの枚数
     private int members; //プレイヤーの人数
+    public List<int> deck; // 共通の山札
     public GameObject CardPrefab; //引いたカード
-    public Vector3 cardPosion;
+    public Vector3 cardPosion = new Vector3(0f,0f,0f);
     public Dictionary<int, int> playerCards = new Dictionary<int, int>(); // プレイヤーIDとカード番号の対応
 
     void Start()
     {
+        myPlayerID = PhotonNetwork.LocalPlayer.ActorNumber;
         members = PhotonNetwork.CurrentRoom.PlayerCount;
         InitializeDeck(); // 山札を初期化
-        DealCards(); // カードをプレイヤーに配布
+        photonView.RPC("DealCard", RpcTarget.MasterClient, myPlayerID); // マスタークライアントにカードを引いてもらう
     }
 
     void InitializeDeck() //山札の初期化
@@ -28,16 +30,12 @@ public class CardManager : MonoBehaviourPun
         }
     }
 
-    void DealCards()
+    [PunRPC]
+    void DealCard(int playerID)
     {
-            cardPosion = new Vector3(0f, 0f, 0f);
-            int number = getCard();
-            int myPlayerID = PhotonNetwork.LocalPlayer.ActorNumber;
-            playerCards[myPlayerID] = number;
-            Debug.Log("+player" + myPlayerID + " : " + number);
-
-            photonView.RPC("SendCardInfo", RpcTarget.Others, myPlayerID, number);
-            makeCardInstance(number, cardPosion, false);
+            int number = getCard(); //ランダムなインデックス獲得
+            Debug.Log("+player" + playerID + " : " + number);
+            photonView.RPC("SendCardInfo", RpcTarget.All, playerID, number);
     }
 
     int getCard()
@@ -48,13 +46,14 @@ public class CardManager : MonoBehaviourPun
         return cardNumber;
     }
 
-    void makeCardInstance(int cardNumber, Vector3 cardPosion, bool isFlipp)
+    [PunRPC]
+    void makeCardInstance(bool isFlipp)
     {
         // カードプレハブをインスタンス化して画面上に表示
         GameObject cardInstance = Instantiate(CardPrefab, cardPosion, Quaternion.identity);
         // カードの値をTextMeshProに設定
         TextMeshProUGUI cardText = cardInstance.GetComponentInChildren<TextMeshProUGUI>();
-        cardText.text = cardNumber.ToString();
+        cardText.text = playerCards[myPlayerID].ToString();
 
             // isFlipp が true の場合、オブジェクトをy軸で180度回転させる
         if (isFlipp)
@@ -62,12 +61,16 @@ public class CardManager : MonoBehaviourPun
             cardInstance.transform.Rotate(0f, 180f, 0f);
             cardInstance.transform.localScale = new Vector3(0.5f,0.5f,1f);
         }
+
     }
 
     [PunRPC]
     private void SendCardInfo(int playerID, int cardNumber)
     {
         playerCards[playerID] = cardNumber;
-        Debug.Log("-player" + playerID + " : " + cardNumber);
+        if(myPlayerID == playerID) //もし自分のカードの更新であればインスタンス生成
+        {
+            makeCardInstance(false);
+        }
     }
 }
