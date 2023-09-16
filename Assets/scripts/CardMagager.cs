@@ -5,10 +5,10 @@ using Photon.Pun;
 
 public class CardManager : MonoBehaviourPun
 {
-    private int myPlayerID; //自信のプレイヤーID
+    private int myPlayerID; //自身のプレイヤーID
     private int cardNum = 10; //カードの枚数
     private int members; //プレイヤーの人数
-    private bool isDraw;
+    private bool isDraw; //一枚引いたか
     public List<int> deck; // 共通の山札
     public GameObject CardPrefab; //引いたカード
     public Dictionary<int, int> playerCards; // プレイヤーIDとカード番号の対応
