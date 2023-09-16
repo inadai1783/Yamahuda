@@ -88,8 +88,8 @@ public class CardManager : MonoBehaviourPun
     }
     void ViewOtherCards()
     {
-        float space = 20f / members - 10f;
-        Vector3 posion = new Vector3(space, 7f, 0f); // カードの表示開始位置
+        float space = 20f / members;
+        Vector3 posion = new Vector3(space - 10f, 7f, 0f); // カードの表示開始位置
 
         foreach (var kvp in playerCards)
         {
