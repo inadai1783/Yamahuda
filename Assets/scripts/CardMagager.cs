@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 using Photon.Pun;
 
@@ -8,14 +10,22 @@ public class CardManager : MonoBehaviourPun
     private int myPlayerID; //自身のプレイヤーID
     private int cardNum = 10; //カードの枚数
     private int members; //プレイヤーの人数
-    private bool isDraw; //一枚引いたか
+    private bool isDraw = false; //一枚引いたか
+    private List<GameObject> cardInstances = new List<GameObject>();
+    public GameObject Deck;
+    public Button restartButton;
+    public Button finishButton;
     public List<int> deck; // 共通の山札
     public GameObject CardPrefab; //引いたカード
     public Dictionary<int, int> playerCards; // プレイヤーIDとカード番号の対応
 
     void Start()
     {
-        isDraw = false;
+        if (PhotonNetwork.IsMasterClient)
+        {
+            restartButton.interactable = true;
+            finishButton.interactable  =true;
+        }
         myPlayerID = PhotonNetwork.LocalPlayer.ActorNumber;
         members = PhotonNetwork.CurrentRoom.PlayerCount;
         playerCards = new Dictionary<int, int>();
@@ -29,6 +39,17 @@ public class CardManager : MonoBehaviourPun
         {
             deck.Add(i);
         }
+        CreateDeck();
+    }
+
+    void CreateDeck()
+    {
+        for(int i = 0; i < cardNum; i++)
+        {
+            Vector3 position = new Vector3(Random.Range(-0.5f, 0.5f), Random.Range(-0.5f, 0.5f), -i * 0.1f);
+            GameObject card = Instantiate(CardPrefab, position, Quaternion.identity, Deck.transform);
+            card.transform.Rotate(0f, 180f, 0f);
+        }
     }
 
     public void OnDeckClicked()
@@ -37,6 +58,35 @@ public class CardManager : MonoBehaviourPun
         {
             photonView.RPC("DealCard", RpcTarget.MasterClient, myPlayerID); // マスタークライアントにカードを引いてもらう
             isDraw = true;
+        }
+    }
+
+    public void OnRestartClicked()
+    {
+        photonView.RPC("Restart", RpcTarget.All);
+    }
+
+    [PunRPC]
+    void Restart()
+    {
+        SceneManager.LoadScene(1);
+    }
+
+    public void OnFinishClicked()
+    {
+        if(cardInstances.Count == members - 1)
+        {
+            photonView.RPC("Finish", RpcTarget.All);
+            finishButton.interactable  = false;
+        }
+    }
+
+    [PunRPC]
+    void Finish()
+    {
+        foreach(var cardInstance in cardInstances)
+        {
+            cardInstance.transform.Rotate(0f, 180f, 0f);
         }
     }
 
@@ -56,13 +106,18 @@ public class CardManager : MonoBehaviourPun
     }
 
     [PunRPC]
-    void makeCardInstance(Vector3 posion, int playerID, bool isFlipp)
+    void makeCardInstance(Vector3 position, int playerID, bool isMine, bool isFlipp)
     {
         // カードプレハブをインスタンス化して画面上に表示
-        GameObject cardInstance = Instantiate(CardPrefab, posion, Quaternion.identity);
+        GameObject cardInstance = Instantiate(CardPrefab, position, Quaternion.identity);
         // カードの値をTextMeshProに設定
         TextMeshProUGUI cardText = cardInstance.GetComponentInChildren<TextMeshProUGUI>();
         cardText.text = playerCards[playerID].ToString();
+
+        if(!isMine)
+        {
+            cardInstances.Add(cardInstance);
+        }
 
         // isFlipp が true の場合、オブジェクトをy軸で180度回転させる
         if (isFlipp)
@@ -79,7 +134,7 @@ public class CardManager : MonoBehaviourPun
         playerCards[playerID] = cardNumber;
         if(myPlayerID == playerID) //もし自分のカードの更新であればインスタンス生成
         {
-            makeCardInstance(new Vector3(0f,-7f,0f), myPlayerID, false);
+            makeCardInstance(new Vector3(0f,-7f,0f), myPlayerID, true, false);
         }
         if(members == playerCards.Count)
         {
@@ -89,7 +144,7 @@ public class CardManager : MonoBehaviourPun
     void ViewOtherCards()
     {
         float space = 20f / members;
-        Vector3 posion = new Vector3(space - 10f, 7f, 0f); // カードの表示開始位置
+        Vector3 position = new Vector3(space - 10f, 7f, 0f); // カードの表示開始位置
 
         foreach (var kvp in playerCards)
         {
@@ -98,9 +153,9 @@ public class CardManager : MonoBehaviourPun
 
             if (playerID != myPlayerID)
             {
-                makeCardInstance(posion, playerID, true);
+                makeCardInstance(position, playerID, false, true);
                 // カードの位置を調整して横並びに表示
-                posion.x += space;
+                position.x += space;
             }
         }
     }
