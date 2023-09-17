@@ -4,14 +4,15 @@ using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
 using Photon.Pun;
+using Photon.Realtime;
 
-public class CardManager : MonoBehaviourPun
+public class CardManager : MonoBehaviourPunCallbacks
 {
     private int myPlayerID; //自身のプレイヤーID
     private int cardNum = 10; //カードの枚数
     private int members; //プレイヤーの人数
     private bool isDraw = false; //一枚引いたか
-    private List<GameObject> cardInstances = new List<GameObject>();
+    private List<GameObject> cardInstances = new List<GameObject>(); //相手カードのリスト
     public GameObject Deck;
     public Button restartButton;
     public Button finishButton;
@@ -157,6 +158,17 @@ public class CardManager : MonoBehaviourPun
                 // カードの位置を調整して横並びに表示
                 position.x += space;
             }
+        }
+    }
+
+    // マスタークライアントがルームを抜けたときに呼び出されるコールバック
+    public override void OnMasterClientSwitched(Player newMasterClient)
+    {
+        // 新しいマスタークライアントが自分の場合、Finish ボタンと Restart ボタンを有効にする
+        if (newMasterClient.ActorNumber == myPlayerID)
+        {
+            restartButton.interactable = true;
+            finishButton.interactable = true;
         }
     }
 }

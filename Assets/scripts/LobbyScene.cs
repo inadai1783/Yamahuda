@@ -42,12 +42,16 @@ public class LobbyScene : MonoBehaviourPunCallbacks
     public override void OnPlayerLeftRoom(Player otherPlayer)
     {
         UpdatePlayerCountText();
+        if (PhotonNetwork.IsMasterClient)
+        {
+            startButton.interactable = true;
+        }
     }
 
     private void UpdatePlayerCountText()
     {
         int playerCount = PhotonNetwork.CurrentRoom.PlayerCount;
-        playerCountText.text = "Players: " + playerCount;
+        playerCountText.text = "Players in Room: " + playerCount;
     }
 
     public void SwitchNextScene()
