@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using Photon.Pun;
 using Photon.Realtime;
+using ExitGames.Client.Photon;
 
 public class CardManager : MonoBehaviourPunCallbacks
 {
@@ -12,7 +13,9 @@ public class CardManager : MonoBehaviourPunCallbacks
     private int cardNum = 10; //カードの枚数
     private int members; //プレイヤーの人数
     private bool isDraw = false; //一枚引いたか
-    private List<GameObject> cardInstances = new List<GameObject>(); //相手カードのリスト
+    private bool isMyCardFlip;
+    private bool finishDealing = false;
+    private List<GameObject> flippedCards = new List<GameObject>(); //相手カードのリスト
     public GameObject Deck;
     public Button restartButton;
     public Button finishButton;
@@ -27,6 +30,7 @@ public class CardManager : MonoBehaviourPunCallbacks
             restartButton.interactable = true;
             finishButton.interactable  =true;
         }
+        isMyCardFlip = (bool)PhotonNetwork.CurrentRoom.CustomProperties["isMyCardFlip"];
         myPlayerID = PhotonNetwork.LocalPlayer.ActorNumber;
         members = PhotonNetwork.CurrentRoom.PlayerCount;
         playerCards = new Dictionary<int, int>();
@@ -75,7 +79,7 @@ public class CardManager : MonoBehaviourPunCallbacks
 
     public void OnFinishClicked()
     {
-        if(cardInstances.Count == members - 1)
+        if(finishDealing)
         {
             photonView.RPC("Finish", RpcTarget.All);
             finishButton.interactable  = false;
@@ -85,7 +89,7 @@ public class CardManager : MonoBehaviourPunCallbacks
     [PunRPC]
     void Finish()
     {
-        foreach(var cardInstance in cardInstances)
+        foreach(var cardInstance in flippedCards)
         {
             cardInstance.transform.Rotate(0f, 180f, 0f);
         }
@@ -107,7 +111,7 @@ public class CardManager : MonoBehaviourPunCallbacks
     }
 
     [PunRPC]
-    void makeCardInstance(Vector3 position, int playerID, bool isMine, bool isFlipp)
+    void makeCardInstance(Vector3 position, int playerID, bool isMine, bool isFlip)
     {
         // カードプレハブをインスタンス化して画面上に表示
         GameObject cardInstance = Instantiate(CardPrefab, position, Quaternion.identity);
@@ -117,14 +121,14 @@ public class CardManager : MonoBehaviourPunCallbacks
 
         if(!isMine)
         {
-            cardInstances.Add(cardInstance);
+            cardInstance.transform.localScale = new Vector3(0.5f,0.5f,1f);
         }
 
         // isFlipp が true の場合、オブジェクトをy軸で180度回転させる
-        if (isFlipp)
+        if (isFlip)
         {
             cardInstance.transform.Rotate(0f, 180f, 0f);
-            cardInstance.transform.localScale = new Vector3(0.5f,0.5f,1f);
+            flippedCards.Add(cardInstance);
         }
 
     }
@@ -135,11 +139,12 @@ public class CardManager : MonoBehaviourPunCallbacks
         playerCards[playerID] = cardNumber;
         if(myPlayerID == playerID) //もし自分のカードの更新であればインスタンス生成
         {
-            makeCardInstance(new Vector3(0f,-7f,0f), myPlayerID, true, false);
+            makeCardInstance(new Vector3(0f,-7f,0f), myPlayerID, true, isMyCardFlip);
         }
         if(members == playerCards.Count)
         {
             ViewOtherCards();
+            finishDealing = true;
         }
     }
     void ViewOtherCards()
@@ -154,7 +159,7 @@ public class CardManager : MonoBehaviourPunCallbacks
 
             if (playerID != myPlayerID)
             {
-                makeCardInstance(position, playerID, false, true);
+                makeCardInstance(position, playerID, false, !isMyCardFlip);
                 // カードの位置を調整して横並びに表示
                 position.x += space;
             }

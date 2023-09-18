@@ -6,10 +6,14 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using ExitGames.Client.Photon;
 
-public class LobbyScene : MonoBehaviourPunCallbacks
+public class StartScene : MonoBehaviourPunCallbacks
 {
+    private bool isMyCardFlip = true;
+    private bool canJoin = true;
     public TextMeshProUGUI playerCountText; // TextMeshProUGUIの参照
     public Button startButton; // スタートボタンの参照
+    public Toggle toggleTRUE;
+    public Toggle toggleFALSE;
 
     private void Start()
     {
@@ -21,29 +25,30 @@ public class LobbyScene : MonoBehaviourPunCallbacks
     public override void OnConnectedToMaster()
     {
         // "Room"という名前のルームに参加する（ルームが存在しなければ作成して参加する）
-        RoomOptions roomOptions = new RoomOptions();
-        roomOptions.CustomRoomProperties = new Hashtable { { "canJoin", true } }; // カスタムプロパティを設定
-        PhotonNetwork.JoinOrCreateRoom("Room", roomOptions, TypedLobby.Default);
+        PhotonNetwork.JoinOrCreateRoom("Room", new RoomOptions(), TypedLobby.Default);
     }
 
     // ゲームサーバーへの接続が成功した時に呼ばれるコールバック
     public override void OnJoinedRoom()
     {
-        // カスタムプロパティ "canJoin" を確認
-        bool canJoin = (bool)PhotonNetwork.CurrentRoom.CustomProperties["canJoin"];
-        if (!canJoin)
+        if (PhotonNetwork.IsMasterClient)
         {
-            // ルームに入室できない場合、退出する
-            PhotonNetwork.LeaveRoom();
-            return;
+            UpdataCustomProp();
+            interactableAllButton();
+        }
+        else
+        {
+            // カスタムプロパティ "canJoin" を確認
+            bool canJoin = (bool)PhotonNetwork.CurrentRoom.CustomProperties["canJoin"];
+            if (!canJoin)
+            {
+                // ルームに入室できない場合、退出する
+                PhotonNetwork.LeaveRoom();
+                return;
+            }
         }
 
         UpdatePlayerCountText();
-
-        if (PhotonNetwork.IsMasterClient)
-        {
-            startButton.interactable = true;
-        }
     }
 
     public override void OnPlayerEnteredRoom(Player newPlayer)
@@ -56,7 +61,7 @@ public class LobbyScene : MonoBehaviourPunCallbacks
         UpdatePlayerCountText();
         if (PhotonNetwork.IsMasterClient)
         {
-            startButton.interactable = true;
+            interactableAllButton();
         }
     }
 
@@ -66,12 +71,26 @@ public class LobbyScene : MonoBehaviourPunCallbacks
         playerCountText.text = "Players in Room: " + playerCount;
     }
 
+    public void ToggleChanged()
+    {
+        if (toggleTRUE.isOn)
+        {
+            isMyCardFlip = true; // カードを裏にする
+            UpdataCustomProp();
+        }
+        else
+        {
+            isMyCardFlip = false; // カードを表にする
+            UpdataCustomProp();
+        }
+    }
+
+
     public void SwitchNextScene()
     {
         // カスタムプロパティ "canJoin" を false に設定
-        Hashtable customProperties = new Hashtable { { "canJoin", false } };
-        PhotonNetwork.CurrentRoom.SetCustomProperties(customProperties);
-
+        canJoin = false;
+        UpdataCustomProp();
         photonView.RPC("StartGame", RpcTarget.All);
     }
 
@@ -79,5 +98,20 @@ public class LobbyScene : MonoBehaviourPunCallbacks
     private void StartGame()
     {
         SceneManager.LoadScene(1);
+    }
+
+    public void UpdataCustomProp()
+    {
+        Hashtable customProperties = new Hashtable { { "canJoin", canJoin }, { "isMyCardFlip", isMyCardFlip} };
+        PhotonNetwork.CurrentRoom.SetCustomProperties(customProperties);
+
+    }
+
+    public void interactableAllButton()
+    {
+        startButton.interactable = true;
+        toggleTRUE.interactable = true;
+        toggleFALSE.interactable = true;
+
     }
 }
