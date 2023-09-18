@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
+using ExitGames.Client.Photon;
 
 public class LobbyScene : MonoBehaviourPunCallbacks
 {
@@ -20,12 +21,23 @@ public class LobbyScene : MonoBehaviourPunCallbacks
     public override void OnConnectedToMaster()
     {
         // "Room"という名前のルームに参加する（ルームが存在しなければ作成して参加する）
-        PhotonNetwork.JoinOrCreateRoom("Room", new RoomOptions(), TypedLobby.Default);
+        RoomOptions roomOptions = new RoomOptions();
+        roomOptions.CustomRoomProperties = new Hashtable { { "canJoin", true } }; // カスタムプロパティを設定
+        PhotonNetwork.JoinOrCreateRoom("Room", roomOptions, TypedLobby.Default);
     }
 
     // ゲームサーバーへの接続が成功した時に呼ばれるコールバック
     public override void OnJoinedRoom()
     {
+        // カスタムプロパティ "canJoin" を確認
+        bool canJoin = (bool)PhotonNetwork.CurrentRoom.CustomProperties["canJoin"];
+        if (!canJoin)
+        {
+            // ルームに入室できない場合、退出する
+            PhotonNetwork.LeaveRoom();
+            return;
+        }
+
         UpdatePlayerCountText();
 
         if (PhotonNetwork.IsMasterClient)
@@ -56,6 +68,10 @@ public class LobbyScene : MonoBehaviourPunCallbacks
 
     public void SwitchNextScene()
     {
+        // カスタムプロパティ "canJoin" を false に設定
+        Hashtable customProperties = new Hashtable { { "canJoin", false } };
+        PhotonNetwork.CurrentRoom.SetCustomProperties(customProperties);
+
         photonView.RPC("StartGame", RpcTarget.All);
     }
 
