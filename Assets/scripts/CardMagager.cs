@@ -101,13 +101,18 @@ public class CardManager : MonoBehaviourPunCallbacks
         int number = getCard(); //ランダムなインデックス獲得
         photonView.RPC("SendCardInfo", RpcTarget.All, playerID, number);
     }
+    
+        //    cardPosion.x = 20f * (float)i / (float)member - 10f; その他のカードを並べるときの座標参考
+        //    cardPosion.y = 5f;
+
 
     int getCard()
     {
         int randomIndex = Random.Range(0, deck.Count); // ランダムな位置からカードを選択
-        int cardNumber = deck[randomIndex]; // 選択したカードを取得
+        int cardNum = deck[randomIndex]; // 選択したカードを取得
         deck.RemoveAt(randomIndex); // カードをリストから削除
-        return cardNumber;
+        //SendDeckData(); //山札の同期
+        return cardNum;
     }
 
     [PunRPC]
