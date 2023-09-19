@@ -1,17 +1,20 @@
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
+using Photon.Pun;
 
-public class CardManager : MonoBehaviour
+public class CardManager : MonoBehaviourPun
 {
     public List<int> deck; // 共通の山札
     private int cardNum = 10; //カードの枚数
-    private int member = 5; //プレイヤーの人数
-    public GameObject Card; //引いたカード
+    private int members; //プレイヤーの人数
+    public GameObject CardPrefab; //引いたカード
     public Vector3 cardPosion;
+    public Dictionary<int, int> playerCards = new Dictionary<int, int>(); // プレイヤーIDとカード番号の対応
 
     void Start()
     {
+        members = PhotonNetwork.CurrentRoom.PlayerCount;
         InitializeDeck(); // 山札を初期化
         DealCards(); // カードをプレイヤーに配布
     }
@@ -27,48 +30,44 @@ public class CardManager : MonoBehaviour
 
     void DealCards()
     {
-        // 各プレイヤーにカードを配布するロジックを実装
-        for (int i = 0; i < member; i++)
-        {
-            setPosion(i);
-            int cardNum = getCard();
-            makeCardInstance(cardNum, cardPosion, i == 0);
-            Debug.Log("Player " + (i + 1) + " received card: " + cardNum);
-        }
-    }
+            cardPosion = new Vector3(0f, 0f, 0f);
+            int number = getCard();
+            int myPlayerID = PhotonNetwork.LocalPlayer.ActorNumber;
+            playerCards[myPlayerID] = number;
+            Debug.Log("+player" + myPlayerID + " : " + number);
 
-    void setPosion(int i){
-        if(i == 0)
-        {
-            cardPosion = new Vector3(0f, -5f);
-        }else
-        {
-           cardPosion.x = 20f * (float)i / (float)member - 10f;
-           cardPosion.y = 5f;
-        }
+            photonView.RPC("SendCardInfo", RpcTarget.Others, myPlayerID, number);
+            makeCardInstance(number, cardPosion, false);
     }
 
     int getCard()
     {
         int randomIndex = Random.Range(0, deck.Count); // ランダムな位置からカードを選択
-        int cardNum = deck[randomIndex]; // 選択したカードを取得
+        int cardNumber = deck[randomIndex]; // 選択したカードを取得
         deck.RemoveAt(randomIndex); // カードをリストから削除
-        return cardNum;
+        return cardNumber;
     }
 
-    void makeCardInstance(int cardNum, Vector3 cardPosion, bool isMine)
+    void makeCardInstance(int cardNumber, Vector3 cardPosion, bool isFlipp)
     {
         // カードプレハブをインスタンス化して画面上に表示
-        GameObject cardInstance = Instantiate(Card, cardPosion, Quaternion.identity);
+        GameObject cardInstance = Instantiate(CardPrefab, cardPosion, Quaternion.identity);
         // カードの値をTextMeshProに設定
         TextMeshProUGUI cardText = cardInstance.GetComponentInChildren<TextMeshProUGUI>();
-        cardText.text = cardNum.ToString();
+        cardText.text = cardNumber.ToString();
 
             // isFlipp が true の場合、オブジェクトをy軸で180度回転させる
-        if (!isMine)
+        if (isFlipp)
         {
             cardInstance.transform.Rotate(0f, 180f, 0f);
             cardInstance.transform.localScale = new Vector3(0.5f,0.5f,1f);
         }
+    }
+
+    [PunRPC]
+    private void SendCardInfo(int playerID, int cardNumber)
+    {
+        playerCards[playerID] = cardNumber;
+        Debug.Log("-player" + playerID + " : " + cardNumber);
     }
 }
