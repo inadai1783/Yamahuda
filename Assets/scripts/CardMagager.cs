@@ -92,7 +92,7 @@ public class CardManager : MonoBehaviourPunCallbacks
         foreach(var cardInstance in flippedCards)
         {
             Animator anime = cardInstance.GetComponent<Animator>();
-            anime.SetBool("isFinished", true);
+            anime.SetBool("isFlipped", true);
         }
     }
 
@@ -102,22 +102,17 @@ public class CardManager : MonoBehaviourPunCallbacks
         int number = getCard(); //ランダムなインデックス獲得
         photonView.RPC("SendCardInfo", RpcTarget.All, playerID, number);
     }
-    
-        //    cardPosion.x = 20f * (float)i / (float)member - 10f; その他のカードを並べるときの座標参考
-        //    cardPosion.y = 5f;
-
 
     int getCard()
     {
         int randomIndex = Random.Range(0, deck.Count); // ランダムな位置からカードを選択
-        int cardNum = deck[randomIndex]; // 選択したカードを取得
+        int cardNumber = deck[randomIndex]; // 選択したカードを取得
         deck.RemoveAt(randomIndex); // カードをリストから削除
-        //SendDeckData(); //山札の同期
-        return cardNum;
+        return cardNumber;
     }
 
     [PunRPC]
-    void makeCardInstance(Vector3 position, int playerID, bool isMine, bool isFlip)
+    void makeCardInstance(Vector3 position, int playerID, bool isMine)
     {
         // カードプレハブをインスタンス化して画面上に表示
         GameObject cardInstance = Instantiate(CardPrefab, position, Quaternion.identity);
@@ -126,27 +121,27 @@ public class CardManager : MonoBehaviourPunCallbacks
         cardText.text = playerCards[playerID].ToString();
 
         // isFlipp が true の場合、オブジェクトをy軸で180度回転させる
-        if (isFlip)
+        if (isMine) //自分のカード=山札から引く(ismycardflipがfalseなら引いてから裏返す)
         {
-            cardInstance.transform.Rotate(0f, 180f, 0f);
-            flippedCards.Add(cardInstance);
-        }
-
-        Transform cardTransform = cardInstance.transform;
-
-        if (!isMine)
-        {
-            cardTransform.localScale = new Vector3(0.5f, 0.5f, 1f);
-        }
-        else
-        {
-            cardTransform.Rotate(0f, 180f, 0f);
-            // 他の変更も同様にキャッシュして使用する
+            cardInstance.transform.Rotate(0f, 180f, 0f); //裏返しの状態にする
             Animator anime = cardInstance.GetComponent<Animator>();
             anime.SetBool("isClicked", true);
+            if(!isMyCardFlip) //裏向きじゃない=表向き
+            {
+                anime.SetBool("isFlipped", true);
+            }else
+            {
+                flippedCards.Add(cardInstance);
+            }
+        }else //その他のカード
+        {
+            cardInstance.transform.localScale = new Vector3(0.5f, 0.5f, 1f);
+            if(!isMyCardFlip) //自分のカードを表向き=その他のカードは裏向き
+            {
+                cardInstance.transform.Rotate(0f, 180f, 0f);
+                flippedCards.Add(cardInstance);
+            }
         }
-
-
     }
 
     [PunRPC]
@@ -156,7 +151,7 @@ public class CardManager : MonoBehaviourPunCallbacks
         if(myPlayerID == playerID) //もし自分のカードの更新であればインスタンス生成
         {
             // makeCardInstance(new Vector3(0f,-7f,0f), myPlayerID, true, isMyCardFlip);
-            makeCardInstance(new Vector3(0f,0f,0f), myPlayerID, true, isMyCardFlip);
+            makeCardInstance(new Vector3(0f,0f,0f), myPlayerID, true);
         }
         if(members == playerCards.Count)
         {
@@ -176,7 +171,7 @@ public class CardManager : MonoBehaviourPunCallbacks
 
             if (playerID != myPlayerID)
             {
-                makeCardInstance(position, playerID, false, !isMyCardFlip);
+                makeCardInstance(position, playerID, false);
                 // カードの位置を調整して横並びに表示
                 position.x += space;
             }
